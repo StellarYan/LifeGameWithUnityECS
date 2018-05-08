@@ -9,41 +9,67 @@ using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine.Assertions;
 using System;
 
+
+
 public struct UpdateArea : IComponentData
 {
-    public int left;
-    public int right;
-    public int up;
-    public int down;
-}
-
-
-//更新矩形区域的格子
-public struct UpdateAreaJob : IJobProcessComponentData<UpdateArea>
-{
-    public void Execute(ref UpdateArea data)
-    {
-        var charMap = CellAutoWorld.instance.CurrentMap;
-        for(int x=data.left;x<=data.right;x++)
-        {
-            for(int y=data.down;y<=data.up;y++)
-            {
-                CellAutoWorld.instance.NextMap[x,y] =CellAutoWorld.instance.rule.GetNewState(x, y);
-            }
-        }
-        
-    }
+    public IntRect areaRect;
 }
 
 public class UpdateWorldSystem : JobComponentSystem
 {
-    
+    public struct UpdateAreaJob : IJobProcessComponentData<UpdateArea>
+    {
+        public void Execute(ref UpdateArea data)
+        {
+            var charMap = CellAutoWorld.instance.CurrentMap;
+            for (int x = data.areaRect.left; x <= data.areaRect.right; x++)
+            {
+                for (int y = data.areaRect.down; y <= data.areaRect.top; y++)
+                {
+                    CellAutoWorld.instance.NextMap[x, y] = CellAutoWorld.instance.rule.GetNewState(x, y);
+                }
+            }
+
+        }
+    }
+
     protected override JobHandle OnUpdate(JobHandle inputDeps)
     {
         var job = new UpdateAreaJob();
-        return job.Schedule(this,inputDeps);
+        return job.Schedule(this,256,inputDeps);
         
     }
+}
+
+[UpdateAfter(typeof(UpdateWorldSystem))]
+public class BuildGridTypeChunkSystem : JobComponentSystem
+{
+    public struct BuildGrid : IComponentData
+    {
+
+    }
+
+    public struct UpdateAreaJob : IJobProcessComponentData<BuildGrid>
+    {
+        public void Execute(ref BuildGrid data)
+        {
+            
+            
+        }
+    }
+
+    protected override JobHandle OnUpdate(JobHandle inputDeps)
+    {
+        var job = new UpdateAreaJob();
+        return job.Schedule(this, 256, inputDeps);
+    }
+}
+
+[UpdateAfter(typeof(BuildGridTypeChunkSystem))]
+public class UpdateMatrixSystem : JobComponentSystem
+{
+
 }
 
 
@@ -53,12 +79,7 @@ public class RenderGridSys : JobComponentSystem
 {
     public ComponentGroup gridgroup;
     public Dictionary<char, SpriteInstanceRenderer> renderers;
-
-    
-
-
-
-
+    public Dictionary<char, List<IntVec2D>> GridTypeChunk;
 
     protected override void OnCreateManager(int capacity)
     {

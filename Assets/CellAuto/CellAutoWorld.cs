@@ -10,6 +10,30 @@ public abstract class CellAutoRule : MonoBehaviour
     public abstract char GetNewState(int x, int y);
 }
 
+public struct IntVec2D
+{
+    public int x;
+    public int y;
+}
+
+public struct IntRect
+{
+    public int left;
+    public int right;
+    public int top;
+    public int down;
+
+    public int length
+    {
+        get { return right - left; }
+    }
+    public int height
+    {
+        get { return top - down; }
+    }
+}
+
+
 
 
 
