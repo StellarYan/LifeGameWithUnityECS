@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using UnityEngine;
 using Unity.Rendering;
+using Unity.Entities;
+using toinfiniityandbeyond.Rendering2D;
 
 public abstract class CellAutoRule : MonoBehaviour
 {
@@ -38,19 +40,28 @@ public struct IntRect
 
 
 public class CellAutoWorld : MonoBehaviour {
-    public int length;
-    public int height;
+
+    public struct CEllAutoMap
+    {
+        public char[,] map;
+        public Dictionary<char, int> charCountDic;
+    }
+
+
+    public IntRect WorldRect;
     public int currentGeneration;
     public CellAutoRule rule;
 
-    private char[,] oddGenerationMap;
-    private char[,] evenGenerationMap;
-    public char[,] CurrentMap
+
+    public Dictionary<char, SpriteInstanceRenderer> renderers;
+    private CEllAutoMap oddGenerationMap;
+    private CEllAutoMap evenGenerationMap;
+    public CEllAutoMap CurrentMap
     {
         get { return (currentGeneration % 2 == 0) ? evenGenerationMap : oddGenerationMap; }
     }
 
-    public char[,] NextMap
+    public CEllAutoMap NextMap
     {
         get { return (currentGeneration % 2 == 0) ? oddGenerationMap : evenGenerationMap; }
     }
@@ -67,9 +78,18 @@ public class CellAutoWorld : MonoBehaviour {
 
     void InitWorld()
     {
-        oddGenerationMap = new char[length, height];
-        evenGenerationMap = new char[length, height];
         
+        oddGenerationMap = new CEllAutoMap
+        {
+            map = new char[WorldRect.length, WorldRect.height],
+            charCountDic =new Dictionary<char, int>()
+        };
+        evenGenerationMap = new CEllAutoMap
+        {
+            map = new char[WorldRect.length, WorldRect.height],
+            charCountDic = new Dictionary<char, int>()
+        };
+
     }
 
     private void Awake()
