@@ -4,6 +4,7 @@ using UnityEngine;
 using Unity.Rendering;
 using Unity.Entities;
 using toinfiniityandbeyond.Rendering2D;
+using System;
 
 public abstract class CellAutoRule : MonoBehaviour
 {
@@ -12,7 +13,20 @@ public abstract class CellAutoRule : MonoBehaviour
     public abstract char GetNewState(int x, int y);
 }
 
-public struct IntVec2D
+public class BasicRule : CellAutoRule
+{
+    public BasicRule()
+    {
+        charRenderer = new Dictionary<char, MeshInstanceRenderer>();
+    }
+
+    public override char GetNewState(int x, int y)
+    {
+        return 'a';
+    }
+}
+
+public struct IntVec2D 
 {
     public int x;
     public int y;
@@ -89,12 +103,20 @@ public class CellAutoWorld : MonoBehaviour {
             map = new char[WorldRect.length, WorldRect.height],
             charCountDic = new Dictionary<char, int>()
         };
+        BasicRule r = new BasicRule();
+        rule = r;
 
     }
 
     private void Awake()
     {
         if (_instance == null) _instance = this;
+        InitWorld();
+    }
+
+    private void Start()
+    {
+        World.Active.GetExistingManager<UpdateMatrixSystem>().Init();
     }
 
 

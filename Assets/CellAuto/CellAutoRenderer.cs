@@ -4,7 +4,7 @@ using Unity.Entities;
 using Unity.Jobs;
 using Unity.Transforms;
 using Unity.Rendering;
-
+using Unity.Mathematics;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine.Assertions;
 using System;
@@ -26,6 +26,7 @@ public class UpdateWorldSystem : JobComponentSystem
     {
         public void Execute(ref UpdateArea data)
         {
+            
             var charMap = CellAutoWorld.instance.CurrentMap;
             for (int x = data.areaRect.left; x <= data.areaRect.right; x++)
             {
@@ -40,6 +41,7 @@ public class UpdateWorldSystem : JobComponentSystem
 
     protected override JobHandle OnUpdate(JobHandle inputDeps)
     {
+        Debug.Log("UpdateWorldSystem");
         var job = new UpdateAreaJob();
         return job.Schedule(this,1,inputDeps);
         
@@ -54,6 +56,7 @@ public class AddGenerationSystem : JobComponentSystem
 {
     protected override JobHandle OnUpdate(JobHandle inputDeps)
     {
+        Debug.Log("AddGenerationSystem ");
         CellAutoWorld.instance.currentGeneration++;
         return base.OnUpdate(inputDeps);
     }
@@ -68,38 +71,91 @@ public class AddGenerationSystem : JobComponentSystem
 [UpdateAfter(typeof(AddGenerationSystem))]
 public class UpdateMatrixSystem : JobComponentSystem
 {
-    public ComponentGroup gridgroup;
-    ForEachComponentGroupFilter RendererFilter;
     List<MeshInstanceRenderer> renderers = new List<MeshInstanceRenderer>();
 
-    public Dictionary<char, List<IntVec2D>> statePositionListDic;
+    ForEachComponentGroupFilter RendererFilter;
+    public ComponentGroup gridgroup;
+    public Dictionary<MeshInstanceRenderer, List<IntVec2D>> renderPositionListDic;
+    EntityArchetype GridRenderEntity;
 
-    public struct charFlag : IComponentData
-    {
-        public char state;
-        public int filterIndex;
-    }
 
-    protected override void OnCreateManager(int capacity)
+    public void Init()
     {
-        base.OnCreateManager(capacity);
-        gridgroup = GetComponentGroup(typeof(TransformMatrix), typeof(MeshInstanceRenderer));
+        Debug.Log("UpdateMatrixSystem init");
+        renderPositionListDic = new Dictionary<MeshInstanceRenderer, List<IntVec2D>>();
         foreach (var cr in CellAutoWorld.instance.rule.charRenderer)
         {
             renderers.Add(cr.Value);
+            renderPositionListDic.Add(cr.Value, new List<IntVec2D>());
         }
+        BuildGroup();
+        GridRenderEntity = EntityManager.CreateArchetype(typeof(TransformMatrix), typeof(MeshInstanceRenderer));
+        
+    }
+
+    protected void AddEntityRender(MeshInstanceRenderer render,int count)
+    {
+        for(int i=0;i<count;i++)
+        {
+            var entity = EntityManager.CreateEntity(GridRenderEntity);
+            EntityManager.SetSharedComponentData(entity, render);
+        }
+        
+    }
+
+    protected void BuildGroup()
+    {
+        gridgroup = GetComponentGroup(typeof(TransformMatrix), typeof(MeshInstanceRenderer));
         RendererFilter = gridgroup.CreateForEachFilter(renderers);
     }
 
-
     protected override JobHandle OnUpdate(JobHandle inputDeps)
     {
+        Debug.Log("UpdateMatrixSystem");
+        for (int x= CellAutoWorld.instance.WorldRect.left;x< CellAutoWorld.instance.WorldRect.right;x++)
+        {
+            for (int y = CellAutoWorld.instance.WorldRect.down; y < CellAutoWorld.instance.WorldRect.top; y++)
+            {
+                var renderer = CellAutoWorld.instance.rule.charRenderer[CellAutoWorld.instance.CurrentMap.map[x, y]];
+                renderPositionListDic[renderer].Add(
+                    new IntVec2D { x =x, y = y });
+            }
+        }
 
 
         for(int i=0;i<RendererFilter.Length;i++)
         {
+            var renderer = renderers[i];
             ComponentDataArray<TransformMatrix> matrixArray= gridgroup.GetComponentDataArray<TransformMatrix>(RendererFilter, i);
+            List<IntVec2D> positionList = renderPositionListDic[renderer];
+            if(matrixArray.Length< positionList.Count)
+            {
+                AddEntityRender(renderer, positionList.Count - matrixArray.Length + positionList.Count);
+            }
+            matrixArray = gridgroup.GetComponentDataArray<TransformMatrix>(RendererFilter, i);
+
+            Vector3 standard = new Vector3(1, 1, 1);
+            for (int m=0;m<matrixArray.Length;m++)
+            {                
+                IntVec2D? pos;
+                if (m>=positionList.Count) pos = null;
+                else pos = positionList[m];
+
+                if (pos != null)
+                {
+                    matrixArray[m] = new TransformMatrix()
+                    {
+                        Value =
+                        Matrix4x4.TRS(new Vector3(pos.Value.x, pos.Value.y, 0), new Quaternion(), standard)
+                    };
+
+                }
+                
+            }
+
+
         }
+        
 
         return base.OnUpdate(inputDeps);
     }
@@ -107,18 +163,4 @@ public class UpdateMatrixSystem : JobComponentSystem
 
 
 
-public class CellAutoRenderer : MonoBehaviour {
-    
 
-
-    private static CellAutoRenderer _instance;
-    public static CellAutoRenderer instance
-    {
-        get { return _instance; }
-    }
-
-    private void Awake()
-    {
-        if (_instance == null) _instance = this;
-    }
-}
