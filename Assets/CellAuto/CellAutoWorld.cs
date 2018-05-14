@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using UnityEngine;
 using Unity.Rendering;
 using Unity.Entities;
+using Unity.Transforms;
 using toinfiniityandbeyond.Rendering2D;
 using System;
+
 
 public abstract class CellAutoRule : MonoBehaviour
 {
@@ -22,15 +24,11 @@ public class BasicRule : CellAutoRule
 
     public override char GetNewState(int x, int y)
     {
-        return 'a';
+        return '0';
     }
 }
 
-public struct IntVec2D 
-{
-    public int x;
-    public int y;
-}
+
 
 public struct IntRect
 {
@@ -50,10 +48,19 @@ public struct IntRect
 }
 
 
+public struct UpdateArea : IComponentData
+{
+    public IntRect areaRect;
+}
+
+public struct GridINfo : IComponentData
+{
+    public int x;
+    public int y;
+}
 
 
-
-public class CellAutoWorld : MonoBehaviour {
+public class CellAutoWorld  {
 
     public struct CEllAutoMap
     {
@@ -67,7 +74,6 @@ public class CellAutoWorld : MonoBehaviour {
     public CellAutoRule rule;
 
 
-    public Dictionary<char, SpriteInstanceRenderer> renderers;
     private CEllAutoMap oddGenerationMap;
     private CEllAutoMap evenGenerationMap;
     public CEllAutoMap CurrentMap
@@ -86,13 +92,56 @@ public class CellAutoWorld : MonoBehaviour {
     private static CellAutoWorld _instance;
     public static CellAutoWorld instance
     {
-        get { return _instance; }
+        get
+        {
+            if (_instance == null) _instance = new CellAutoWorld();
+            return _instance;
+        }
+    }
+
+    private void InitArea()
+    {
+        var area = World.Active.GetOrCreateManager<EntityManager>().CreateEntity(typeof(UpdateArea));
+        World.Active.GetOrCreateManager<EntityManager>().SetComponentData(area, new UpdateArea()
+        {
+            areaRect = new IntRect()
+            {
+                left = 0,
+                down = 0,
+                top = 100,
+                right = 100
+            }
+        }
+        );
+    }
+
+    private void InitGrid()
+    {
+        var gridtype = World.Active.GetOrCreateManager<EntityManager>().
+            CreateArchetype(typeof(GridINfo), typeof(TransformMatrix), typeof(MeshInstanceRenderer));
+        for(int x= WorldRect.left; x<WorldRect.right;x++)
+        {
+            for(int y=WorldRect.down;y<WorldRect.top;y++)
+            {
+                var grid = World.Active.GetOrCreateManager<EntityManager>().CreateEntity(gridtype);
+                World.Active.GetOrCreateManager<EntityManager>().SetComponentData(grid, new GridINfo() { x = x, y = y });
+                World.Active.GetOrCreateManager<EntityManager>().SetComponentData(
+                    grid, new TransformMatrix()
+                    {
+                        Value = Matrix4x4.TRS(new Vector3(x, y, 0), Quaternion.identity, Vector3.one)
+                    }
+                );
+                World.Active.GetOrCreateManager<EntityManager>().SetSharedComponentData(grid, rule.charRenderer['0']);
+
+            }
+        }
+
     }
 
 
-    void InitWorld()
+    public CellAutoWorld()
     {
-        
+        WorldRect = new IntRect() { left = 0, down = 0, top = 100, right = 100 };
         oddGenerationMap = new CEllAutoMap
         {
             map = new char[WorldRect.length, WorldRect.height],
@@ -103,21 +152,30 @@ public class CellAutoWorld : MonoBehaviour {
             map = new char[WorldRect.length, WorldRect.height],
             charCountDic = new Dictionary<char, int>()
         };
+        //renderers = new Dictionary<char, MeshInstanceRenderer>();
         BasicRule r = new BasicRule();
         rule = r;
 
+        var tree = Resources.Load<GameObject>("Tree");
+        Material mat= tree.GetComponent<MeshRenderer>().sharedMaterial;
+        Mesh mesh = tree.GetComponent<MeshFilter>().sharedMesh;
+
+        var render = new MeshInstanceRenderer() { castShadows = 0,material =mat,mesh=mesh  };
+        rule.charRenderer.Add('0', render);
+
+        InitArea();
+        InitGrid();
+        Debug.Log("World Init");
+
+
+
+
+
     }
 
-    private void Awake()
-    {
-        if (_instance == null) _instance = this;
-        InitWorld();
-    }
 
-    private void Start()
-    {
-        World.Active.GetExistingManager<UpdateMatrixSystem>().Init();
-    }
+
+    
 
 
 }
