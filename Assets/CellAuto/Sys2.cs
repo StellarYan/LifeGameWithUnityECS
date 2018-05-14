@@ -21,7 +21,17 @@ public class UpdateMatrixSystem : JobComponentSystem
     {
         public void Execute(ref GridINfo data0, ref TransformMatrix data1)
         {
-            data1.Value = Matrix4x4.TRS(new Vector3(data0.x, data0.y, 0), Quaternion.identity, Vector3.one);
+            
+            if (CellAutoWorld.instance.CurrentMap[data0.x, data0.y] != data0.c)
+            {
+                
+                data1.Value = Matrix4x4.identity;
+            }
+            else
+            {
+                
+                data1.Value = data0.matrix;
+            }
         }
     }
     protected override JobHandle OnUpdate(JobHandle inputDeps)

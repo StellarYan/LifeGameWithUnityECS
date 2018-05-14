@@ -21,16 +21,16 @@ public class UpdateWorldSystem : JobComponentSystem
     {
         public void Execute(ref UpdateArea data)
         {
-            return;
             var charMap = CellAutoWorld.instance.CurrentMap;
             for (int x = data.areaRect.left; x < data.areaRect.right; x++)
             {
                 for (int y = data.areaRect.down; y < data.areaRect.top; y++)
                 {
-                    CellAutoWorld.instance.NextMap.map[x, y] = CellAutoWorld.instance.rule.GetNewState(x, y);
+                    
+                    CellAutoWorld.instance.NextMap[x, y] = CellAutoWorld.instance.rule.GetNewState(x, y);
                 }
             }
-            
+            CellAutoWorld.instance.currentGeneration++;
 
         }
     }
