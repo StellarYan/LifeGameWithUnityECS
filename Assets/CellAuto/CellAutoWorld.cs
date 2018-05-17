@@ -40,7 +40,7 @@ public class BasicRule : CellAutoRule
             }
         }
         if (Count < 2 || Count > 3) v = 0;
-        else if (Count == 2) v = 1;
+        else if (Count == 3) v = 1;
         return v;
         
     }
